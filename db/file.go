@@ -46,3 +46,10 @@ func ShareFile(fileId uuid.UUID) error {
 	}
 	return nil
 }
+
+func DeleteFile(fileId uuid.UUID) error {
+	if err := dbCon.Delete(&Files{FileId: fileId}).Error; err != nil {
+		return errors.New("文件删除失败")
+	}
+	return nil
+}

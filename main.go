@@ -1,7 +1,6 @@
 package main
 
 import (
-	"os"
 	"strconv"
 	"webnote/config"
 	"webnote/db"
@@ -15,7 +14,5 @@ func main() {
 	config.Init()
 	server.Init(engine)
 	db.InitDB()
-	path, _ := os.Getwd()
-	println(path)
 	engine.Run(config.Conf.Address + ":" + strconv.Itoa(config.Conf.Port))
 }

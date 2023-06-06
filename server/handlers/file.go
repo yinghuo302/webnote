@@ -75,6 +75,26 @@ func SaveFile(ctx *gin.Context) {
 	})
 }
 
+func DeleteFile(ctx *gin.Context) {
+	userId := ctx.GetInt64("userId")
+	fileId, err := uuid.Parse(ctx.Query("id"))
+	if err != nil {
+		ctx.JSON(http.StatusOK, gin.H{"status": "文件ID错误"})
+		return
+	}
+	_, err = db.CheckFileUser(fileId, userId)
+	if err != nil {
+		ctx.JSON(http.StatusOK, gin.H{"status": err.Error()})
+		return
+	}
+	err = db.DeleteFile(fileId)
+	if err != nil {
+		ctx.JSON(http.StatusOK, gin.H{"status": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
 func ShareFile(ctx *gin.Context) {
 	userId := ctx.GetInt64("userId")
 	fileId, err := uuid.Parse(ctx.Query("id"))
