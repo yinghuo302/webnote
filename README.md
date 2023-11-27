@@ -9,4 +9,4 @@ https://github.com/zanilia1016/webnote/assets/76104215/c142ba56-572c-447f-80ad-9
 ![效果图](https://github.com/zanilia1016/webnote/assets/76104215/dcdce8b7-f772-4585-a08c-56a9746aaf18)
 
 
-此仓库为webnote后端部分。主要使用Gin + Gorm 实现，实现的较为简单，只完成了基本功能部分。
+此仓库为webnote后端部分。主要使用Gin + Gorm 实现，实现的较为简单，只完成了基本功能部分。前端部分仓库在[webnote-web](https://github.com/zanilia1016/webnote-web)
