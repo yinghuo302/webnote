@@ -1,19 +1,17 @@
-FROM alpine:3.17 as builder
-LABEL stage=go-builder
-WORKDIR /app/
-COPY ./ ./
-RUN apk add --no-cache bash curl gcc git go musl-dev; \
-	chmod +x build.sh; \
-    bash build.sh
+FROM golang:1.26-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /webnote .
 
-FROM alpine:3.17
-LABEL MAINTAINER="zanilia"
-VOLUME /opt/webnote/data
-VOLUME /opt/webnote/img
-WORKDIR /opt/webnote/
-COPY --from=builder /app/bin/webnote ./
-COPY run.sh /run.sh
-RUN apk add --no-cache bash ca-certificates su-exec tzdata; \
-    chmod +x /entrypoint.sh
+FROM alpine:3.22
+RUN apk add --no-cache ca-certificates && addgroup -S web && adduser -S -G web web && mkdir -p /opt/webnote/data && chown -R web:web /opt/webnote/data
+COPY --from=build /webnote /opt/webnote/bin/webnote
+USER web
+ENV WEBNOTE_ADDRESS=0.0.0.0 WEBNOTE_DATA_DIR=/opt/webnote/data/legacy WEBNOTE_IMG_DIR=/opt/webnote/data/img
+WORKDIR /opt/webnote
+VOLUME ["/opt/webnote/data"]
 EXPOSE 8000
-CMD [ "/run.sh" ]
+HEALTHCHECK --interval=30s --timeout=3s CMD wget -q -O /dev/null http://127.0.0.1:8000/api/ping || exit 1
+ENTRYPOINT ["/opt/webnote/bin/webnote"]

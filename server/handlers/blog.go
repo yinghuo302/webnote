@@ -1,70 +1,56 @@
 package handlers
 
 import (
-	"net/http"
-	"os"
-	"strconv"
-	"webnote/db"
-
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"net/http"
+	"strconv"
+	"webnote/db"
 )
 
-func GetArticles(ctx *gin.Context) {
-	pageNum, err := strconv.Atoi(ctx.Query("page"))
-	keywd := ctx.Query("keywd")
-	if err != nil {
-		ctx.JSON(http.StatusOK, gin.H{"status": "参数获取失败"})
+func GetArticles(c *gin.Context) {
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil || page < 1 || page > 100000 {
+		fail(c, 400, "页码无效")
 		return
 	}
-	cnt := int64(0)
-	if pageNum == 1 {
-		cnt, err = db.GetArticleCount(keywd)
-		if err != nil {
-			ctx.JSON(http.StatusOK, gin.H{"status": "文章数量获取失败"})
-			return
-		}
-	}
-	artiles, err := db.GetArticles(keywd, pageNum)
-	if err != nil {
-		ctx.JSON(http.StatusOK, gin.H{"status": err.Error()})
+	keyword := c.Query("keywd")
+	if len(keyword) > 200 {
+		fail(c, 400, "搜索词过长")
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
-		"status":   "success",
-		"pages":    cnt / 10,
-		"articles": artiles,
-	})
+	count, err := db.GetArticleCount(keyword)
+	if err != nil {
+		fail(c, 500, "查询失败")
+		return
+	}
+	articles, err := db.GetArticles(keyword, page)
+	if err != nil {
+		fail(c, 500, "查询失败")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success", "pages": (count + 9) / 10, "articles": articles})
 }
-
-func GetArticle(ctx *gin.Context) {
-	fileId, err := uuid.Parse(ctx.Query("id"))
+func GetArticle(c *gin.Context) {
+	id, err := uuid.Parse(c.Query("id"))
 	if err != nil {
-		ctx.JSON(http.StatusOK, gin.H{"status": "文章ID不正确"})
+		fail(c, 400, "文章ID无效")
 		return
 	}
-	article, err := db.GetArticle(fileId)
+	article, err := db.GetArticle(id)
 	if err != nil {
-		ctx.JSON(http.StatusOK, gin.H{"status": err.Error()})
-		return
-	}
-	if !article.Public {
-		ctx.JSON(http.StatusOK, gin.H{"status": "文章未公开"})
+		fail(c, 404, "文章未公开或不存在")
 		return
 	}
 	article.User, err = db.GetUser(article.UserId)
 	if err != nil {
-		ctx.JSON(http.StatusOK, gin.H{"status": err.Error()})
+		fail(c, 500, "读取用户失败")
 		return
 	}
-	content, err := os.ReadFile("./data/" + article.FileId.String() + ".md")
+	article.Content, err = legacyContent(article)
 	if err != nil {
-		ctx.JSON(http.StatusOK, gin.H{"status": "文件打开失败"})
+		fail(c, 500, "读取文章失败")
 		return
 	}
-	article.Content = string(content)
-	ctx.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"article": article,
-	})
+	c.JSON(200, gin.H{"status": "success", "article": article})
 }

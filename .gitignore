@@ -8,7 +8,11 @@
 !*.md
 !*.yml
 !*.yaml
+!*.conf
 !*.json
 !.gitignore
+!.dockerignore
+!deploy/nginx-webnote.conf
+!deploy/webnote.service
 img/
 data/

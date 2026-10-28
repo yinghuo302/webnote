@@ -2,54 +2,32 @@ package db
 
 import (
 	"errors"
-
 	"github.com/google/uuid"
 )
 
 func GetFiles(uid int64) ([]Files, error) {
 	var files []Files
-	if err := dbCon.Where(&Files{UserId: uid}).Find(&files).Error; err != nil {
-		return nil, errors.New("文件列表获取失败")
-	}
-	return files, nil
+	err := dbCon.Select("user_id", "name", "file_id", "description", "public").Where("user_id = ?", uid).Order("name").Find(&files).Error
+	return files, err
 }
-
-func CheckFileUser(fileId uuid.UUID, userid int64) (*Files, error) {
+func CheckFileUser(id uuid.UUID, uid int64) (*Files, error) {
 	file := &Files{}
-	if err := dbCon.First(file, fileId).Error; err != nil {
-		return nil, errors.New("文件列表获取失败")
-	}
-	if file.UserId != userid {
-		return nil, errors.New("the owner of file isn't you")
+	if err := dbCon.Where("file_id = ? AND user_id = ?", id, uid).First(file).Error; err != nil {
+		return nil, errors.New("文件不存在")
 	}
 	return file, nil
 }
-
 func SaveFile(file *Files) (uuid.UUID, error) {
+	file.ContentStored = true
 	if file.FileId == uuid.Nil {
 		file.FileId = uuid.New()
-		if err := dbCon.Create(file).Error; err != nil {
-			return uuid.Nil, err
-		}
-		return file.FileId, nil
+		err := dbCon.Create(file).Error
+		return file.FileId, err
 	}
-	if err := dbCon.Model(file).Updates(file).Error; err != nil {
-		return uuid.Nil, err
-	}
-	return file.FileId, nil
+	err := dbCon.Model(&Files{}).Where("file_id = ? AND user_id = ?", file.FileId, file.UserId).Updates(map[string]interface{}{"name": file.Name, "description": file.Description, "content": file.Content, "content_stored": true}).Error
+	return file.FileId, err
 }
-
-func ShareFile(fileId uuid.UUID) error {
-	file := &Files{FileId: fileId, Public: true}
-	if err := dbCon.Model(file).Select("public").Updates(file).Error; err != nil {
-		return errors.New("分享文件失败")
-	}
-	return nil
+func ShareFile(id uuid.UUID) error {
+	return dbCon.Model(&Files{}).Where("file_id = ?", id).Update("public", true).Error
 }
-
-func DeleteFile(fileId uuid.UUID) error {
-	if err := dbCon.Delete(&Files{FileId: fileId}).Error; err != nil {
-		return errors.New("文件删除失败")
-	}
-	return nil
-}
+func DeleteFile(id uuid.UUID) error { return dbCon.Where("file_id = ?", id).Delete(&Files{}).Error }

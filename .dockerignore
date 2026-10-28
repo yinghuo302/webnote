@@ -1,0 +1,16 @@
+**
+!go.mod
+!go.sum
+!main.go
+!config/
+!config/*.go
+!db/
+!db/*.go
+!server/
+!server/*.go
+!server/handlers/
+!server/handlers/*.go
+!server/middleware/
+!server/middleware/*.go
+!utils/
+!utils/*.go

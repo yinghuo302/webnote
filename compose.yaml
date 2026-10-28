@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: webnote
+      POSTGRES_DB: webnote
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${WEBNOTE_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U webnote -d webnote"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+  webnote:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      WEBNOTE_DATABASE_URL: postgres://webnote:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/webnote?sslmode=disable
+      WEBNOTE_SECURE_COOKIES: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - webnote-data:/opt/webnote/data
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  postgres-data:
+  webnote-data:

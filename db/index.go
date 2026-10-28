@@ -1,83 +1,52 @@
 package db
 
 import (
+	"context"
 	"fmt"
-	"log"
-	"strings"
 	"time"
 	"webnote/config"
 
-	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"gorm.io/gorm/schema"
 )
 
 var dbCon *gorm.DB
 
 func InitDB() error {
-	var err error
-	dbCon, err = gorm.Open(connectDB(), initConfig())
-	dbCon.AutoMigrate(&Login{})
-	dbCon.AutoMigrate(&Code{})
-	dbCon.AutoMigrate(&User{})
-	dbCon.AutoMigrate(&Files{})
-	return err
-}
-
-func initConfig() *gorm.Config {
-	return &gorm.Config{
-		NamingStrategy: schema.NamingStrategy{
-			TablePrefix: config.Conf.SQLDriver.TablePrefix,
-		},
-		Logger: initLogger(),
+	connection, err := gorm.Open(postgres.Open(config.Conf.DatabaseURL), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	if err != nil {
+		return fmt.Errorf("connect PostgreSQL: %w", err)
 	}
-}
-
-func initLogger() logger.Interface {
-	logLevel := logger.Silent
-	if config.Conf.Debug {
-		logLevel = logger.Info
+	sqlDB, err := connection.DB()
+	if err != nil {
+		return err
 	}
-	newLogger := logger.New(
-		log.New(log.Writer(), "\n", log.LstdFlags),
-		logger.Config{
-			SlowThreshold:             time.Second,
-			LogLevel:                  logLevel,
-			IgnoreRecordNotFoundError: true,
-			Colorful:                  true,
-		},
-	)
-	return newLogger
-}
-
-func connectDB() gorm.Dialector {
-	var sql gorm.Dialector
-	sqlDriver := &config.Conf.SQLDriver
-	switch sqlDriver.Type {
-	case "sqlite":
-		{
-			if !(strings.HasSuffix(sqlDriver.DBFile, ".db") && len(sqlDriver.DBFile) > 3) {
-				log.Fatalf("db name error.")
-			}
-			sql = sqlite.Open(fmt.Sprintf("%s?_journal=WAL&_vacuum=incremental", sqlDriver.DBFile))
-		}
-	case "mysql":
-		{
-			sql = mysql.Open(fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local&tls=%s", sqlDriver.User, sqlDriver.Password, sqlDriver.Host, sqlDriver.Port, sqlDriver.Name, sqlDriver.SSLMode))
-		}
-	case "postgres":
-		{
-			sql = postgres.Open(fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=%s TimeZone=Asia/Shanghai", sqlDriver.Host, sqlDriver.User, sqlDriver.Password, sqlDriver.Name, sqlDriver.Port, sqlDriver.SSLMode))
-		}
-	default:
-		log.Fatalf("not supported database type: %s", sqlDriver.Type)
+	sqlDB.SetMaxOpenConns(10)
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err = sqlDB.PingContext(ctx); err != nil {
+		sqlDB.Close()
+		return fmt.Errorf("ping PostgreSQL: %w", err)
 	}
-	return sql
+	if err = connection.AutoMigrate(&Login{}, &Code{}, &User{}, &Files{}, &Session{}); err != nil {
+		sqlDB.Close()
+		return fmt.Errorf("migrate PostgreSQL schema: %w", err)
+	}
+	dbCon = connection
+	return nil
 }
-
-func GetDB() *gorm.DB {
-	return dbCon
+func GetDB() *gorm.DB { return dbCon }
+func Close() error {
+	if dbCon == nil {
+		return nil
+	}
+	sqlDB, err := dbCon.DB()
+	dbCon = nil
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
 }
