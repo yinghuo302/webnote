@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log"
 	"math/big"
 	"net/mail"
 	"strings"
@@ -77,17 +78,30 @@ func Register(ctx *gin.Context) {
 	ctx.JSON(200, gin.H{"status": "success"})
 }
 func GetCode(ctx *gin.Context) {
-	email := strings.ToLower(strings.TrimSpace(ctx.Query("email")))
+	email := strings.TrimSpace(ctx.Query("email"))
+	if email == "" {
+		var request struct {
+			Email string `json:"email"`
+		}
+		if err := ctx.ShouldBindJSON(&request); err != nil {
+			ctx.JSON(400, gin.H{"status": "无效请求"})
+			return
+		}
+		email = request.Email
+	}
+	email = strings.ToLower(strings.TrimSpace(email))
 	if !validEmail(email) {
 		ctx.JSON(400, gin.H{"status": "邮箱不正确"})
 		return
 	}
 	if config.Conf.Email.Host == "" || config.Conf.Email.User == "" || config.Conf.Email.Auth == "" {
+		log.Printf("verification mail unavailable: SMTP configuration is incomplete")
 		ctx.JSON(503, gin.H{"status": "邮件服务未配置"})
 		return
 	}
 	number, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
 	if err != nil {
+		log.Printf("generate verification code failed: %v", err)
 		ctx.JSON(500, gin.H{"status": "验证码生成失败"})
 		return
 	}
@@ -101,13 +115,17 @@ func GetCode(ctx *gin.Context) {
 			ctx.JSON(429, gin.H{"status": "请求过于频繁"})
 			return
 		}
+		log.Printf("persist verification code failed: %v", err)
 		ctx.JSON(500, gin.H{"status": "验证码保存失败"})
 		return
 	}
 	if err := utils.SendMail(email, "Webnote 注册验证码", "验证码："+code+"，10 分钟内有效"); err != nil {
+		safeError := strings.ReplaceAll(err.Error(), email, "[redacted]")
+		log.Printf("verification email delivery failed via SMTP host %q: %s", config.Conf.Email.Host, safeError)
 		ctx.JSON(502, gin.H{"status": "验证码发送失败"})
 		return
 	}
+	log.Printf("verification email sent via SMTP host %q", config.Conf.Email.Host)
 	ctx.JSON(200, gin.H{"status": "success"})
 }
 func Logout(ctx *gin.Context) {

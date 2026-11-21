@@ -30,6 +30,8 @@
 
 本机生产服务从 systemd `LoadCredential` 文件读取这些配置。用 `sudoedit /opt/webnote/config/webnote.env` 添加或修改，每项单独一行，**不要加 `export`、引号或提交到 Git**；文件应保持 `root:root`、权限 `0600`。之后运行 `sudo systemctl restart webnote` 让 systemd 重新载入凭据。用一个未注册邮箱测试 `POST /api/public/code`；已注册邮箱会返回相同的泛化成功响应但不再发送注册邮件。
 
+Go/Gin 日志位于 `/var/log/webnote/webnote.log`，Nginx 站点日志位于 `/var/log/webnote/nginx-access.log` 和 `nginx-error.log`；应用文件按 30MB gzip 轮转并保留 7 份。日志查看和 Nginx 轮转 timer 命令见 [运维文档](<docs/operations.md#logs-and-rotation>)。
+
 ### 本机原生安装：`/opt/webnote`
 
 准备本机 PostgreSQL、独立角色及数据库；旧 SQLite 数据不会自动迁移。后端目录为本仓库，独立前端为同级 `../webnote-web/` 仓库。在后端目录构建后端：

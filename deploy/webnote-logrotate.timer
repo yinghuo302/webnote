@@ -1,0 +1,12 @@
+[Unit]
+Description=Check Webnote Nginx logs for rotation
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+Unit=webnote-logrotate.service
+
+[Install]
+WantedBy=timers.target

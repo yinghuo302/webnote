@@ -23,7 +23,9 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/webnote/data
+LogsDirectory=webnote
+LogsDirectoryMode=0750
+ReadWritePaths=/opt/webnote/data /var/log/webnote
 CapabilityBoundingSet=
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 

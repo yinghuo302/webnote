@@ -2,7 +2,7 @@
 
 ## Current deployment posture
 
-The intended deployment is native PostgreSQL + Go systemd service + Nginx static frontend; Docker is optional compatibility only. The checked-in installer deliberately **does not** start Webnote or change/reload the active Nginx configuration. It stages files and runs `systemctl daemon-reload` only. The site is `webnote.zanilia.eu.org`, listens only on 443, and intentionally has no HTTP port-80 listener. The certificate is `/etc/letsencrypt/live/zanilia.eu.org/{fullchain,privkey}.pem`; enable only after `nginx -t` succeeds.
+The intended deployment is native PostgreSQL + Go systemd service + Nginx static frontend; Docker is optional compatibility only. The checked-in installer deliberately **does not** start Webnote or change/reload the active Nginx configuration. It stages files, reloads systemd units, and enables the five-minute Nginx log-rotation timer. The site is `webnote.zanilia.eu.org`, listens only on 443, and intentionally has no HTTP port-80 listener. The certificate is `/etc/letsencrypt/live/zanilia.eu.org/{fullchain,privkey}.pem`; enable only after `nginx -t` succeeds.
 
 ## Build artifacts
 
@@ -44,6 +44,19 @@ sudo systemctl enable --now webnote
 systemctl status webnote
 journalctl -u webnote -f
 curl --fail http://127.0.0.1:10167/api/ping
+```
+
+## Logs and rotation
+
+The Go process writes standard-library, GORM error, Gin access and Gin recovery logs to `/var/log/webnote/webnote.log`; it also mirrors them to stdout/journald. The file rolls at 30 MiB, gzip-compresses archives and retains at most 7 backups. SMTP verification failures are logged with the server/error but without the verification code, SMTP authorization code or recipient address.
+
+The Webnote Nginx virtual host writes `/var/log/webnote/nginx-access.log` and `nginx-error.log`. `deploy/webnote.logrotate` rotates both at 30 MiB, compresses them, and retains 7 backups; `webnote-logrotate.timer` checks every five minutes and signals Nginx to reopen rotated logs. Inspect logs with:
+
+```sh
+sudo tail -F /var/log/webnote/webnote.log
+sudo tail -F /var/log/webnote/nginx-error.log
+sudo journalctl -u webnote -f
+systemctl list-timers webnote-logrotate.timer
 ```
 
 ## Nginx

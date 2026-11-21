@@ -83,6 +83,12 @@ func TestNotesAuthorizationAndPersistence(t *testing.T) {
 	if res := request("GET", "/", "", ""); res.Code != 404 {
 		t.Fatalf("backend unexpectedly serves frontend: %d", res.Code)
 	}
+	if res := request("POST", "/api/public/code", `{"email":"new@example.test"}`, ""); res.Code != 503 {
+		t.Fatalf("JSON email code request without SMTP: got %d, want 503; body=%s", res.Code, res.Body)
+	}
+	if res := request("POST", "/api/public/code", `{"email":"new@example.test"}`, ""); res.Code != 503 {
+		t.Fatalf("JSON email-code request without SMTP: got %d, want 503; body=%s", res.Code, res.Body)
+	}
 	if res := request("GET", "/api/private/files", "", ""); res.Code != 401 {
 		t.Fatalf("anonymous list: %d", res.Code)
 	}

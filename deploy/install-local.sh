@@ -41,5 +41,9 @@ else
   echo 'Frontend build not present; /opt/webnote/dist remains empty until the frontend is approved and built.' >&2
 fi
 install -o root -g root -m 0644 "$base/deploy/webnote.service" /etc/systemd/system/webnote.service
+install -o root -g root -m 0644 "$base/deploy/webnote-logrotate.service" /etc/systemd/system/webnote-logrotate.service
+install -o root -g root -m 0644 "$base/deploy/webnote-logrotate.timer" /etc/systemd/system/webnote-logrotate.timer
+install -o root -g root -m 0644 "$base/deploy/webnote.logrotate" /etc/logrotate.d/webnote
 systemctl daemon-reload
-printf 'Staged /opt/webnote and systemd unit. No service or Nginx site was enabled.\n'
+systemctl enable --now webnote-logrotate.timer
+printf 'Staged /opt/webnote, systemd units, and log rotation. Webnote and Nginx site are not started or changed.\n'

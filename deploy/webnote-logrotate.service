@@ -1,0 +1,6 @@
+[Unit]
+Description=Rotate Webnote Nginx logs
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/logrotate /etc/logrotate.d/webnote

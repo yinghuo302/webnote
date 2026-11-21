@@ -1,0 +1,13 @@
+/var/log/webnote/nginx-access.log /var/log/webnote/nginx-error.log {
+    size 30M
+    rotate 7
+    missingok
+    notifempty
+    compress
+    su web web
+    create 0640 web web
+    sharedscripts
+    postrotate
+        /bin/systemctl kill --kill-who=main --signal=USR1 nginx.service >/dev/null 2>&1 || true
+    endscript
+}

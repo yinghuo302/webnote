@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 	"webnote/config"
 
@@ -14,7 +15,14 @@ import (
 var dbCon *gorm.DB
 
 func InitDB() error {
-	connection, err := gorm.Open(postgres.Open(config.Conf.DatabaseURL), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	dbLogger := logger.New(log.New(log.Writer(), "", log.LstdFlags), logger.Config{
+		SlowThreshold:             time.Second,
+		LogLevel:                  logger.Error,
+		IgnoreRecordNotFoundError: true,
+		ParameterizedQueries:      true,
+		Colorful:                  false,
+	})
+	connection, err := gorm.Open(postgres.Open(config.Conf.DatabaseURL), &gorm.Config{Logger: dbLogger})
 	if err != nil {
 		return fmt.Errorf("connect PostgreSQL: %w", err)
 	}
