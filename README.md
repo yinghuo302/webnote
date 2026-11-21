@@ -34,7 +34,7 @@ cd ../webnote-web && pnpm run build
 
 在审阅 [安装脚本](<deploy/install-local.sh>) 后，**由你自己选择**运行 `sudo sh webnote/deploy/install-local.sh`（从父目录运行）；它会创建 `/opt/webnote/bin`、`/opt/webnote/data`、`/opt/webnote/config`、`/opt/webnote/static`，以低权限 `web` 用户拥有数据目录、root 持有二进制和静态前端；SMTP 配置只存 root-only 文件并通过 systemd `LoadCredential` 私密挂载给应用，不进入进程环境、不让 Nginx 直接读取。脚本安装 [systemd 单元](<deploy/webnote.service>)。它**不会启动服务、更改现有 Nginx 站点或导入旧数据**，且不会覆盖已有的 `/opt/webnote/config/webnote.env`。当前主机 Nginx worker 也以 `web` 用户运行；数据库角色使用独立名称 `webnote` 和口令认证，避免 Nginx worker 继承 peer 数据库访问。数据库与 SMTP 密钥通过 systemd 私有 credential 传递，前端静态目录不含这些文件。不要手工改成 `EnvironmentFile` 秘密注入。
 
-[Nginx HTTPS 配置](<deploy/webnote.conf>) 已针对 `webnote.zanilia.eu.org` 和已确认覆盖该子域的 `/etc/letsencrypt/live/zanilia.eu.org/` 证书配置；它只监听 443，不监听 80。将它安装为 `/etc/nginx/conf.d/webnote.conf` 后，先 `sudo nginx -t` 再重载 Nginx。验证 API：`curl http://127.0.0.1:10167/api/ping`，再用 `https://webnote.zanilia.eu.org` 检查前端和登录 Cookie。当前 `/opt/webnote/static` 尚无确认发布的前端构建；构建并部署前，站点根路径会返回 404。Nginx 覆盖 `X-Forwarded-For` 为真实客户端 IP；Go 只信任本机反向代理。服务单元默认 `WEBNOTE_SECURE_COOKIES=true`，不应通过公网 HTTP 提供登录入口。TLS 证书未就绪时，不要把此模板直接启用。
+[Nginx HTTPS 配置](<deploy/webnote.conf>) 已针对 `webnote.zanilia.eu.org` 和已确认覆盖该子域的 `/etc/letsencrypt/live/zanilia.eu.org/` 证书配置；它只监听 443，不监听 80。将它安装为 `/etc/nginx/conf.d/webnote.conf` 后，先 `sudo nginx -t` 再重载 Nginx。验证 API：`curl http://127.0.0.1:10167/api/ping`，再用 `https://webnote.zanilia.eu.org` 检查前端和登录 Cookie。本次未从前端仓库当前未提交的 Muya 工作区重新构建或覆盖静态文件；部署前 `/opt/webnote/static` 已有可服务内容，部署后站点根路径返回 200。请确认现有静态前端版本符合预期后再替换。Nginx 覆盖 `X-Forwarded-For` 为真实客户端 IP；Go 只信任本机反向代理。服务单元默认 `WEBNOTE_SECURE_COOKIES=true`，不应通过公网 HTTP 提供登录入口。TLS 证书未就绪时，不要把此模板直接启用。
 
 ### 旧 SQLite 离线迁移
 
