@@ -35,7 +35,7 @@ Review `deploy/install-local.sh`, then, from the parent workspace containing `we
 sudo sh webnote/deploy/install-local.sh
 ```
 
-It checks for the low-privilege `web` account, PostgreSQL URL and build artifacts; refuses symlinks in protected installation paths; stages the binary, frontend, legacy Markdown fallback and images under `/opt/webnote`; sets the application data owner to `web`; installs `deploy/webnote.service`; and reloads the systemd unit definitions. It preserves an existing credential file. It does not import SQLite records, start/enable Webnote, edit Nginx, or reload Nginx. Inspect file ownership/modes after staging.
+It checks for the low-privilege `web` account, PostgreSQL URL and build artifacts; refuses symlinks in protected installation paths; stages the binary, frontend, legacy Markdown fallback and images under `/opt/webnote`; sets the application data owner to `web`; installs `deploy/webnote.service`; and reloads the systemd unit definitions. It preserves an existing credential file. Because copy tools can retain source directory modes, the script explicitly resets `/opt/webnote/data`, `img` and `legacy` to owner-only access after copying. It does not import SQLite records, start/enable Webnote, edit Nginx, or reload Nginx. Inspect file ownership/modes after staging.
 
 The service binds only `127.0.0.1:8000`, runs as `web`, uses `ProtectSystem=strict`, and may write only to `/opt/webnote/data`. Commands after staging, once the domain/TLS/site configuration is ready:
 

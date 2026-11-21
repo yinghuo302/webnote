@@ -18,6 +18,10 @@ install -d -o root -g root -m 0700 /opt/webnote/config
 install -d -o web -g web -m 0700 /opt/webnote/data /opt/webnote/data/img /opt/webnote/data/legacy
 if [ -d "$base/data" ]; then cp -an "$base/data/." /opt/webnote/data/legacy/; chown -R web:web /opt/webnote/data/legacy; fi
 if [ -d "$base/img" ]; then cp -an "$base/img/." /opt/webnote/data/img/; chown -R web:web /opt/webnote/data/img; fi
+# cp -a/-n preserves source directory modes; never leave copied private notes world-readable.
+chown -R web:web /opt/webnote/data
+chmod -R go-rwx /opt/webnote/data
+chmod 0700 /opt/webnote/data /opt/webnote/data/img /opt/webnote/data/legacy
 install -o root -g web -m 0750 "$base/bin/webnote" /opt/webnote/bin/webnote
 if [ ! -e /opt/webnote/config/webnote.env ]; then
   install -o root -g root -m 0600 /dev/null /opt/webnote/config/webnote.env
