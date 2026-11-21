@@ -3,6 +3,7 @@ package db
 import (
 	"crypto/subtle"
 	"errors"
+	"log"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 var ErrInvalidCredentials = errors.New("邮箱或密码错误")
 var ErrCodeCooldown = errors.New("请等待 60 秒后再次请求验证码")
 var ErrEmailRegistered = errors.New("邮箱已注册")
+var ErrVerificationCode = errors.New("验证码错误或已过期")
 
 func normalizeEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }
 func UserLogin(email, passwd string) (int64, error) {
@@ -41,6 +43,15 @@ func UserLogin(email, passwd string) (int64, error) {
 }
 func CreateUser(email, passwd, code string) (int64, error) {
 	email = normalizeEmail(email)
+	code = strings.TrimSpace(code)
+	if len(code) != 6 {
+		return 0, ErrVerificationCode
+	}
+	for _, digit := range code {
+		if digit < '0' || digit > '9' {
+			return 0, ErrVerificationCode
+		}
+	}
 	if len(passwd) < 12 || len(passwd) > 72 {
 		return 0, errors.New("密码长度应为 12 至 72 个字符")
 	}
@@ -53,16 +64,23 @@ func CreateUser(email, passwd, code string) (int64, error) {
 		return 0, attempt.Error
 	}
 	if attempt.RowsAffected == 0 {
-		return 0, errors.New("验证码错误或已过期")
+		log.Printf("registration verification rejected: no active code or retry limit reached")
+		return 0, ErrVerificationCode
 	}
 	var uid int64
 	err = dbCon.Transaction(func(tx *gorm.DB) error {
 		var record Code
 		if err := tx.Where("email = ?", email).First(&record).Error; err != nil {
-			return errors.New("验证码错误或已过期")
+			log.Printf("registration verification rejected: code record missing")
+			return ErrVerificationCode
 		}
-		if record.UpdatedAt.Add(10*time.Minute).Before(time.Now()) || bcrypt.CompareHashAndPassword([]byte(record.Code), []byte(code)) != nil {
-			return errors.New("验证码错误或已过期")
+		if record.UpdatedAt.Add(10 * time.Minute).Before(time.Now()) {
+			log.Printf("registration verification rejected: code expired")
+			return ErrVerificationCode
+		}
+		if bcrypt.CompareHashAndPassword([]byte(record.Code), []byte(code)) != nil {
+			log.Printf("registration verification rejected: code mismatch")
+			return ErrVerificationCode
 		}
 		var existing int64
 		if err := tx.Model(&Login{}).Where("LOWER(email) = ?", email).Count(&existing).Error; err != nil {

@@ -60,8 +60,16 @@ func Register(ctx *gin.Context) {
 	uid, err := db.CreateUser(user.Email, user.Passwd, user.Code)
 	if err != nil {
 		message := "验证码错误或已过期"
-		if !errors.Is(err, db.ErrEmailRegistered) && !strings.Contains(err.Error(), "验证码") && !strings.Contains(err.Error(), "密码") {
+		switch {
+		case errors.Is(err, db.ErrVerificationCode):
+			log.Printf("registration rejected: verification code absent, expired, exhausted, or mismatched")
+		case errors.Is(err, db.ErrEmailRegistered):
+			// Keep the response generic to avoid account enumeration.
+		case strings.Contains(err.Error(), "密码"):
+			message = err.Error()
+		default:
 			message = "注册失败"
+			log.Printf("registration failed: internal/database error type %T", err)
 		}
 		ctx.JSON(400, gin.H{"status": message})
 		return
