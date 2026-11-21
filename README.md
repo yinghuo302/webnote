@@ -21,6 +21,15 @@
 - 退出登录会删除服务端这一会话；修改密码会撤销该账号全部设备会话。发现 Cookie 泄露时，可调用 `POST /api/private/logout-all` 撤销全部设备会话，或修改密码；后台也可删除该用户的 `sessions` 行立即吊销。**已被窃取且未被撤销的有效令牌仍可被重放**，无法仅靠 HttpOnly 阻止；须配合 HTTPS、前端防 XSS、Nginx 安全响应头、短有效期、日志不记录 Cookie、主机与数据库权限。旧版 `LoginSession` Cookie 在升级后不被识别。
 - 密码使用 bcrypt 存储，旧明文密码在成功登录后升级；新密码至少 12 字符。登录 IP 限流与 Nginx 限流降低在线猜测风险。邮件验证码来自系统安全随机数，以 bcrypt 储存，10 分钟内有效，同邮箱发送间隔至少 60 秒，错误尝试最多 5 次，验证成功后删除；注册/登录错误不泄露密码。SMTP 必须支持 STARTTLS。危险操作检查 `Origin` / `Sec-Fetch-Site`，Cookie 使用 Strict；不要在前端插入未经净化的 Markdown HTML。以上措施不保证对所有分布式攻击或已入侵主机的绝对安全。
 
+### 邮件验证码：SMTP 授权码
+
+应用不使用邮箱网页登录密码，而使用邮箱服务商单独生成的 **SMTP 授权码/应用密码**。先在邮箱设置中启用 SMTP/IMAP/POP3 服务并生成授权码，再配置：
+
+- QQ 邮箱：`WEBNOTE_SMTP_HOST=smtp.qq.com`、`WEBNOTE_SMTP_PORT=587`、`WEBNOTE_SMTP_USER=完整QQ邮箱地址`、`WEBNOTE_SMTP_PASSWORD=邮箱设置中生成的授权码`。
+- 其他邮箱：使用服务商提供的 SMTP 主机名、STARTTLS 端口（通常为 587）、完整发件邮箱地址和专用授权码。若服务商只提供隐式 TLS 的 465 端口，本应用当前不支持该模式。
+
+本机生产服务从 systemd `LoadCredential` 文件读取这些配置。用 `sudoedit /opt/webnote/config/webnote.env` 添加或修改，每项单独一行，**不要加 `export`、引号或提交到 Git**；文件应保持 `root:root`、权限 `0600`。之后运行 `sudo systemctl restart webnote` 让 systemd 重新载入凭据。用一个未注册邮箱测试 `POST /api/public/code`；已注册邮箱会返回相同的泛化成功响应但不再发送注册邮件。
+
 ### 本机原生安装：`/opt/webnote`
 
 准备本机 PostgreSQL、独立角色及数据库；旧 SQLite 数据不会自动迁移。后端目录为本仓库，独立前端为同级 `../webnote-web/` 仓库。在后端目录构建后端：
@@ -30,11 +39,11 @@ CGO_ENABLED=0 go build -trimpath -o bin/webnote .
 cd ../webnote-web && pnpm run build
 ```
 
-使用与 OS 用户不同的 PostgreSQL 专属角色 `webnote`，仅授予 Webnote 数据库权限；数据库口令放进源 `.env` 的 `WEBNOTE_DATABASE_URL=postgres://webnote:<URL编码后的密码>@127.0.0.1:5432/webnote?sslmode=disable`（本机回环连接），文件权限 0600。安装脚本只将白名单数据库/SMTP配置复制进 root-only 凭据，再通过 systemd `LoadCredential` 在服务私有凭据目录交给程序，不进入环境变量、Nginx 静态根或 Nginx worker 可读的普通文件；手动开发时可将环境变量临时加载进当前 shell。按需增加 `WEBNOTE_SMTP_HOST`、`WEBNOTE_SMTP_PORT=587`、`WEBNOTE_SMTP_USER`、`WEBNOTE_SMTP_PASSWORD`。不要提交密钥；首次注册必须有 SMTP，否则验证码接口返回 503。过去的 `WEBNOTE_SESSION_KEY` 已弃用。
+使用与 OS 用户不同的 PostgreSQL 专属角色 `webnote`，仅授予 Webnote 数据库权限；数据库口令放进源 `.env` 的 `WEBNOTE_DATABASE_URL=postgres://webnote:<URL编码后的密码>@127.0.0.1:5432/webnote?sslmode=disable`（本机回环连接），文件权限 0600。安装脚本只将白名单数据库/SMTP配置复制进 root-only 凭据，再通过 systemd `LoadCredential` 在服务私有凭据目录交给程序，不进入环境变量、Nginx 静态根或 Nginx worker 可读的普通文件；手动开发时可将环境变量临时加载进当前 shell。按需增加 `WEBNOTE_SMTP_HOST`、`WEBNOTE_SMTP_PORT=587`、`WEBNOTE_SMTP_USER`、`WEBNOTE_SMTP_PASSWORD`。不要提交密钥；首次注册必须有 SMTP，否则验证码接口返回 503。具体授权码配置见下方“邮件验证码”。过去的 `WEBNOTE_SESSION_KEY` 已弃用。
 
-在审阅 [安装脚本](<deploy/install-local.sh>) 后，**由你自己选择**运行 `sudo sh webnote/deploy/install-local.sh`（从父目录运行）；它会创建 `/opt/webnote/bin`、`/opt/webnote/data`、`/opt/webnote/config`、`/opt/webnote/static`，以低权限 `web` 用户拥有数据目录、root 持有二进制和静态前端；SMTP 配置只存 root-only 文件并通过 systemd `LoadCredential` 私密挂载给应用，不进入进程环境、不让 Nginx 直接读取。脚本安装 [systemd 单元](<deploy/webnote.service>)。它**不会启动服务、更改现有 Nginx 站点或导入旧数据**，且不会覆盖已有的 `/opt/webnote/config/webnote.env`。当前主机 Nginx worker 也以 `web` 用户运行；数据库角色使用独立名称 `webnote` 和口令认证，避免 Nginx worker 继承 peer 数据库访问。数据库与 SMTP 密钥通过 systemd 私有 credential 传递，前端静态目录不含这些文件。不要手工改成 `EnvironmentFile` 秘密注入。
+在审阅 [安装脚本](<deploy/install-local.sh>) 后，**由你自己选择**运行 `sudo sh webnote/deploy/install-local.sh`（从父目录运行）；它会创建 `/opt/webnote/bin`、`/opt/webnote/data`、`/opt/webnote/config`、`/opt/webnote/dist`，以低权限 `web` 用户拥有数据目录、root 持有二进制和静态前端；SMTP 配置只存 root-only 文件并通过 systemd `LoadCredential` 私密挂载给应用，不进入进程环境、不让 Nginx 直接读取。脚本安装 [systemd 单元](<deploy/webnote.service>)。它**不会启动服务、更改现有 Nginx 站点或导入旧数据**，且不会覆盖已有的 `/opt/webnote/config/webnote.env`。当前主机 Nginx worker 也以 `web` 用户运行；数据库角色使用独立名称 `webnote` 和口令认证，避免 Nginx worker 继承 peer 数据库访问。数据库与 SMTP 密钥通过 systemd 私有 credential 传递，前端静态目录不含这些文件。不要手工改成 `EnvironmentFile` 秘密注入。
 
-[Nginx HTTPS 配置](<deploy/webnote.conf>) 已针对 `webnote.zanilia.eu.org` 和已确认覆盖该子域的 `/etc/letsencrypt/live/zanilia.eu.org/` 证书配置；它只监听 443，不监听 80。将它安装为 `/etc/nginx/conf.d/webnote.conf` 后，先 `sudo nginx -t` 再重载 Nginx。验证 API：`curl http://127.0.0.1:10167/api/ping`，再用 `https://webnote.zanilia.eu.org` 检查前端和登录 Cookie。本次未从前端仓库当前未提交的 Muya 工作区重新构建或覆盖静态文件；部署前 `/opt/webnote/static` 已有可服务内容，部署后站点根路径返回 200。请确认现有静态前端版本符合预期后再替换。Nginx 覆盖 `X-Forwarded-For` 为真实客户端 IP；Go 只信任本机反向代理。服务单元默认 `WEBNOTE_SECURE_COOKIES=true`，不应通过公网 HTTP 提供登录入口。TLS 证书未就绪时，不要把此模板直接启用。
+[Nginx HTTPS 配置](<deploy/webnote.conf>) 已针对 `webnote.zanilia.eu.org` 和已确认覆盖该子域的 `/etc/letsencrypt/live/zanilia.eu.org/` 证书配置；它只监听 443，不监听 80。将它安装为 `/etc/nginx/conf.d/webnote.conf` 后，先 `sudo nginx -t` 再重载 Nginx。验证 API：`curl http://127.0.0.1:10167/api/ping`，再用 `https://webnote.zanilia.eu.org` 检查前端和登录 Cookie。本次未从前端仓库当前未提交的 Muya 工作区重新构建或覆盖静态文件；部署前 `/opt/webnote/dist` 已有可服务内容，部署后站点根路径返回 200。请确认现有静态前端版本符合预期后再替换。Nginx 覆盖 `X-Forwarded-For` 为真实客户端 IP；Go 只信任本机反向代理。服务单元默认 `WEBNOTE_SECURE_COOKIES=true`，不应通过公网 HTTP 提供登录入口。TLS 证书未就绪时，不要把此模板直接启用。
 
 ### 旧 SQLite 离线迁移
 

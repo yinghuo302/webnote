@@ -19,7 +19,7 @@ cd ../webnote-web
 pnpm run build
 ```
 
-Output is `../webnote-web/dist`; it is not copied into this Go repository. Frontend/API paths are same-origin `/api/...`. The checked-out frontend currently has uncommitted editor changes; do not publish a build from that tree until the user approves the frontend version. If not built, `/opt/webnote/static` remains empty and Nginx will not have a SPA to serve yet.
+Output is `../webnote-web/dist`; it is not copied into this Go repository. Frontend/API paths are same-origin `/api/...`. The checked-out frontend currently has uncommitted editor changes; do not publish a build from that tree until the user approves the frontend version. If not built, `/opt/webnote/dist` remains empty and Nginx will not have a SPA to serve yet.
 
 ## PostgreSQL and credential setup
 
@@ -48,9 +48,9 @@ curl --fail http://127.0.0.1:10167/api/ping
 
 ## Nginx
 
-`deploy/webnote.conf` is the site configuration for `webnote.zanilia.eu.org`. It listens on 443 only (no listener/redirect on port 80), uses the existing `zanilia.eu.org` certificate confirmed by the user to cover this hostname, serves `/opt/webnote/static`, proxies `/api/` to `127.0.0.1:10167`, rate-limits authentication routes, sets security headers and bounds uploads. Install it as `/etc/nginx/conf.d/webnote.conf`; run `sudo nginx -t` before `sudo systemctl reload nginx`. Do not change unrelated virtual hosts.
+`deploy/webnote.conf` is the site configuration for `webnote.zanilia.eu.org`. It listens on 443 only (no listener/redirect on port 80), uses the existing `zanilia.eu.org` certificate confirmed by the user to cover this hostname, serves `/opt/webnote/dist`, proxies `/api/` to `127.0.0.1:10167`, rate-limits authentication routes, sets security headers and bounds uploads. Install it as `/etc/nginx/conf.d/webnote.conf`; run `sudo nginx -t` before `sudo systemctl reload nginx`. Do not change unrelated virtual hosts.
 
-Nginx must set a fixed `Host` matching the deployed domain and overwrite `X-Forwarded-For`; the Go server trusts only local proxy addresses. HTTPS is mandatory for production `Secure` cookies. An unset domain/certificate is a staging state, not a production-ready site.
+Nginx must set a fixed `Host` matching the deployed domain and overwrite `X-Forwarded-For`; the Go server trusts only local proxy addresses. CSP must include `frame-src 'self'` and `frame-ancestors 'self'` for the Muya editor's same-origin `/markdown-editor/index.html` iframe; do not use `frame-ancestors 'none'`. HTTPS is mandatory for production `Secure` cookies. An unset domain/certificate is a staging state, not a production-ready site.
 
 ## Backups and upgrades
 

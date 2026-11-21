@@ -20,6 +20,10 @@ A stolen, unexpired token can be replayed until it is revoked or expires. `HttpO
 
 If the account owner still has access, use **Log out all devices** (`POST /api/private/logout-all`) or change the password; both delete server-side session records. An administrator can delete rows with that user's `user_id` from `sessions` to revoke them. Also rotate exposed database/SMTP credentials if host access is suspected, inspect access/system logs, and investigate the original theft path. The `LoginSession` value itself is never logged by application or sample Nginx access logging. Do not claim that a valid stolen token is intrinsically protected from replay.
 
+## Same-origin editor iframe and CSP
+
+The Muya editor loads its Markdown workspace from `/markdown-editor/index.html` in a same-origin iframe. Nginx CSP must therefore allow `frame-src 'self'` and `frame-ancestors 'self'`. `frame-ancestors 'none'` blocks this legitimate iframe even though both pages use the same origin. Keep the policy same-origin only; do not use `*` or remove framing restrictions.
+
 ## Deployment boundaries and sensitive values
 
 The Go API is loopback-only; Nginx terminates TLS and forwards a fixed configured host and actual client IP. Go trusts only loopback proxy addresses. Never let arbitrary clients reach port 10167 or supply trusted proxy headers directly. The Linux `web` account is shared with this host's Nginx worker, so the PostgreSQL login is a separate password-authenticated role `webnote`, not peer-authenticated as OS user `web`.
