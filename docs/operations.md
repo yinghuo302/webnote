@@ -2,7 +2,7 @@
 
 ## Current deployment posture
 
-The intended deployment is native PostgreSQL + Go systemd service + Nginx static frontend; Docker is optional compatibility only. The checked-in installer deliberately **does not** start Webnote or change/reload the active Nginx configuration. It stages files and runs `systemctl daemon-reload` only. Domain/certificate placeholders must be replaced and reviewed first. Never enable a TLS template while its certificate paths still contain `YOUR_DOMAIN`.
+The intended deployment is native PostgreSQL + Go systemd service + Nginx static frontend; Docker is optional compatibility only. The checked-in installer deliberately **does not** start Webnote or change/reload the active Nginx configuration. It stages files and runs `systemctl daemon-reload` only. The site is `webnote.zanilia.eu.org`, listens only on 443, and intentionally has no HTTP port-80 listener. The certificate is `/etc/letsencrypt/live/zanilia.eu.org/{fullchain,privkey}.pem`; enable only after `nginx -t` succeeds.
 
 ## Build artifacts
 
@@ -19,7 +19,7 @@ cd ../webnote-web
 pnpm run build
 ```
 
-Output is `../webnote-web/dist`; it is not copied into this Go repository. Before deployment, ensure the Go binary and frontend build both exist. Frontend/API paths are same-origin `/api/...`.
+Output is `../webnote-web/dist`; it is not copied into this Go repository. Frontend/API paths are same-origin `/api/...`. The checked-out frontend currently has uncommitted editor changes; do not publish a build from that tree until the user approves the frontend version. If not built, `/opt/webnote/static` remains empty and Nginx will not have a SPA to serve yet.
 
 ## PostgreSQL and credential setup
 
@@ -37,18 +37,18 @@ sudo sh webnote/deploy/install-local.sh
 
 It checks for the low-privilege `web` account, PostgreSQL URL and build artifacts; refuses symlinks in protected installation paths; stages the binary, frontend, legacy Markdown fallback and images under `/opt/webnote`; sets the application data owner to `web`; installs `deploy/webnote.service`; and reloads the systemd unit definitions. It preserves an existing credential file. Because copy tools can retain source directory modes, the script explicitly resets `/opt/webnote/data`, `img` and `legacy` to owner-only access after copying. It does not import SQLite records, start/enable Webnote, edit Nginx, or reload Nginx. Inspect file ownership/modes after staging.
 
-The service binds only `127.0.0.1:8000`, runs as `web`, uses `ProtectSystem=strict`, and may write only to `/opt/webnote/data`. Commands after staging, once the domain/TLS/site configuration is ready:
+The service binds only `127.0.0.1:10167`, runs as `web`, uses `ProtectSystem=strict`, and may write only to `/opt/webnote/data`. Commands after staging, once the domain/TLS/site configuration is ready:
 
 ```sh
 sudo systemctl enable --now webnote
 systemctl status webnote
 journalctl -u webnote -f
-curl --fail http://127.0.0.1:8000/api/ping
+curl --fail http://127.0.0.1:10167/api/ping
 ```
 
 ## Nginx
 
-After the user supplies a domain and a valid TLS certificate, replace `YOUR_DOMAIN` and certificate paths in `deploy/nginx-webnote.conf`. Include it from the Nginx `http` context (Ubuntu's `conf.d` files are included there), verify `root /opt/webnote/www`, API proxy host and rate limit, then install it as a site configuration. Run `sudo nginx -t` before `sudo systemctl reload nginx`. The sample redirects HTTP to HTTPS, serves the SPA, proxies `/api/` to loopback, rate-limits authentication routes, sets security headers and bounds uploads. Do not change unrelated existing virtual hosts.
+`deploy/webnote.conf` is the site configuration for `webnote.zanilia.eu.org`. It listens on 443 only (no listener/redirect on port 80), uses the existing `zanilia.eu.org` certificate confirmed by the user to cover this hostname, serves `/opt/webnote/static`, proxies `/api/` to `127.0.0.1:10167`, rate-limits authentication routes, sets security headers and bounds uploads. Install it as `/etc/nginx/conf.d/webnote.conf`; run `sudo nginx -t` before `sudo systemctl reload nginx`. Do not change unrelated virtual hosts.
 
 Nginx must set a fixed `Host` matching the deployed domain and overwrite `X-Forwarded-For`; the Go server trusts only local proxy addresses. HTTPS is mandatory for production `Secure` cookies. An unset domain/certificate is a staging state, not a production-ready site.
 

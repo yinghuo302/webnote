@@ -24,11 +24,12 @@ services:
     environment:
       WEBNOTE_DATABASE_URL: postgres://webnote:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/webnote?sslmode=disable
       WEBNOTE_SECURE_COOKIES: "true"
+      WEBNOTE_PORT: "10167"
     depends_on:
       postgres:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:10167:10167"
     volumes:
       - webnote-data:/opt/webnote/data
     security_opt:

@@ -22,7 +22,7 @@ If the account owner still has access, use **Log out all devices** (`POST /api/p
 
 ## Deployment boundaries and sensitive values
 
-The Go API is loopback-only; Nginx terminates TLS and forwards a fixed configured host and actual client IP. Go trusts only loopback proxy addresses. Never let arbitrary clients reach port 8000 or supply trusted proxy headers directly. The Linux `web` account is shared with this host's Nginx worker, so the PostgreSQL login is a separate password-authenticated role `webnote`, not peer-authenticated as OS user `web`.
+The Go API is loopback-only; Nginx terminates TLS and forwards a fixed configured host and actual client IP. Go trusts only loopback proxy addresses. Never let arbitrary clients reach port 10167 or supply trusted proxy headers directly. The Linux `web` account is shared with this host's Nginx worker, so the PostgreSQL login is a separate password-authenticated role `webnote`, not peer-authenticated as OS user `web`.
 
 Production database/SMTP values are kept in a root-owned mode-0600 credential source under `/opt/webnote/config` and passed through systemd `LoadCredential`, not `EnvironmentFile`; the app reads the private credential file from `CREDENTIALS_DIRECTORY`. Do not put secrets in the frontend root, container build context, command-line arguments, committed files, access logs, or agent output. Do not expose `.env`, SQLite database/WAL files or local backups to GitHub.
 

@@ -10,7 +10,7 @@ Group=web
 WorkingDirectory=/opt/webnote
 LoadCredential=webnote.env:/opt/webnote/config/webnote.env
 Environment=WEBNOTE_ADDRESS=127.0.0.1
-Environment=WEBNOTE_PORT=8000
+Environment=WEBNOTE_PORT=10167
 Environment=WEBNOTE_DATA_DIR=/opt/webnote/data/legacy
 Environment=WEBNOTE_IMG_DIR=/opt/webnote/data/img
 Environment=WEBNOTE_SECURE_COOKIES=true

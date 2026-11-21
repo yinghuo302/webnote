@@ -3,15 +3,15 @@
 ## Components
 
 - `webnote/` (this repository) is the Go 1.26 JSON API and PostgreSQL application. It does not embed, build, or serve HTML/CSS/JavaScript.
-- `../webnote-web/` is the separate browser frontend repository. Build its production output there; Nginx owns static serving and routes `/api/` to `127.0.0.1:8000`.
+- `../webnote-web/` is the separate browser frontend repository. Build its production output there; Nginx owns static serving and routes `/api/` to `127.0.0.1:10167`.
 - PostgreSQL is the runtime system of record. Native deployments use a dedicated database role `webnote`, distinct from the Linux `web` service/Nginx account. Docker/Compose remains an optional compatibility path, not the preferred local deployment.
-- The intended single-host filesystem is `/opt/webnote/bin` (root-owned API binary), `/opt/webnote/www` (read-only frontend assets), `/opt/webnote/data/img` (uploads) and `/opt/webnote/data/legacy` (temporary fallback for pre-migration Markdown files). PostgreSQL owns its data directory separately.
+- The intended single-host filesystem is `/opt/webnote/bin` (root-owned API binary), `/opt/webnote/static` (read-only frontend assets), `/opt/webnote/data/img` (uploads) and `/opt/webnote/data/legacy` (temporary fallback for pre-migration Markdown files). PostgreSQL owns its data directory separately.
 
 ## Request flow
 
 Nginx serves the SPA and forwards API requests. For API proxy requests it sets a fixed configured `Host`, replaces forwarding headers with the actual client address and scheme, and applies an additional authentication-route rate limit. The Go server listens on loopback by default, trusts only loopback proxies, applies request timeouts/body limits, and performs same-origin validation for unsafe methods. Private routes then validate a database-backed session before calling handlers.
 
-Do not expose the Go listener directly to the internet. A public deployment requires HTTPS at Nginx, the production `Secure` cookie configuration and a real domain/certificate; the sample Nginx configuration intentionally has placeholder hostnames.
+Do not expose the Go listener directly to the internet. A public deployment requires HTTPS at Nginx, the production `Secure` cookie configuration and a real domain/certificate; the deployed Nginx configuration is HTTPS-only for `webnote.zanilia.eu.org` and has no port-80 listener.
 
 ## Storage model
 

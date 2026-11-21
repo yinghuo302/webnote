@@ -20,6 +20,9 @@ func TestInitReadsSystemdCredentialAndDefaultsSecureCookie(t *testing.T) {
 	if err := Init(); err != nil {
 		t.Fatal(err)
 	}
+	if Conf.Port != 10167 {
+		t.Fatalf("default API port = %d, want 10167", Conf.Port)
+	}
 	if !Conf.SecureCookies {
 		t.Fatal("secure cookies must default on")
 	}

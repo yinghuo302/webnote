@@ -6,14 +6,13 @@ if [ "$(id -u)" -ne 0 ]; then echo 'Run with sudo after reviewing this script.' 
 base=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
 frontend="$base/../webnote-web/dist"
 [ -f "$base/bin/webnote" ] || { echo 'Build the Go binary first.' >&2; exit 1; }
-[ -f "$frontend/index.html" ] || { echo 'Build the separate frontend first.' >&2; exit 1; }
 [ -f "$base/.env" ] || { echo 'Prepare backend .env first.' >&2; exit 1; }
 id web >/dev/null 2>&1 || { echo 'Low-privilege user web does not exist.' >&2; exit 1; }
 grep -q '^WEBNOTE_DATABASE_URL=' "$base/.env" || { echo 'Add WEBNOTE_DATABASE_URL to the private source .env.' >&2; exit 1; }
 [ ! -L /opt/webnote ] || { echo 'Refusing symlink at /opt/webnote.' >&2; exit 1; }
-for path in /opt/webnote/bin /opt/webnote/config /opt/webnote/www /opt/webnote/data; do [ ! -L "$path" ] || { echo "Refusing symlink at $path." >&2; exit 1; }; done
+for path in /opt/webnote/bin /opt/webnote/config /opt/webnote/static /opt/webnote/data; do [ ! -L "$path" ] || { echo "Refusing symlink at $path." >&2; exit 1; }; done
 [ ! -L /opt/webnote/config/webnote.env ] || { echo 'Refusing symlinked service credentials.' >&2; exit 1; }
-install -d -o root -g web -m 0750 /opt/webnote /opt/webnote/bin /opt/webnote/www
+install -d -o root -g web -m 0750 /opt/webnote /opt/webnote/bin /opt/webnote/static
 install -d -o root -g root -m 0700 /opt/webnote/config
 install -d -o web -g web -m 0700 /opt/webnote/data /opt/webnote/data/img /opt/webnote/data/legacy
 if [ -d "$base/data" ]; then cp -an "$base/data/." /opt/webnote/data/legacy/; chown -R web:web /opt/webnote/data/legacy; fi
@@ -34,9 +33,13 @@ else
 fi
 chown root:root /opt/webnote/config/webnote.env
 chmod 0600 /opt/webnote/config/webnote.env
-cp -R "$frontend/." /opt/webnote/www/
-chown -R root:web /opt/webnote/www
-chmod -R u=rwX,g=rX,o= /opt/webnote/www
+if [ -f "$frontend/index.html" ]; then
+  cp -R "$frontend/." /opt/webnote/static/
+  chown -R root:web /opt/webnote/static
+  chmod -R u=rwX,g=rX,o= /opt/webnote/static
+else
+  echo 'Frontend build not present; /opt/webnote/static remains empty until the frontend is approved and built.' >&2
+fi
 install -o root -g root -m 0644 "$base/deploy/webnote.service" /etc/systemd/system/webnote.service
 systemctl daemon-reload
 printf 'Staged /opt/webnote and systemd unit. No service or Nginx site was enabled.\n'

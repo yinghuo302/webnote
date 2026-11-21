@@ -12,6 +12,7 @@ USER web
 ENV WEBNOTE_ADDRESS=0.0.0.0 WEBNOTE_DATA_DIR=/opt/webnote/data/legacy WEBNOTE_IMG_DIR=/opt/webnote/data/img
 WORKDIR /opt/webnote
 VOLUME ["/opt/webnote/data"]
-EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=3s CMD wget -q -O /dev/null http://127.0.0.1:8000/api/ping || exit 1
+EXPOSE 10167
+ENV WEBNOTE_PORT=10167
+HEALTHCHECK --interval=30s --timeout=3s CMD wget -q -O /dev/null http://127.0.0.1:10167/api/ping || exit 1
 ENTRYPOINT ["/opt/webnote/bin/webnote"]

@@ -59,7 +59,7 @@ func envInt(key string, fallback int, credentials map[string]string) (int, error
 }
 func Init() error {
 	credentials := secretValues()
-	port, err := envInt("WEBNOTE_PORT", 8000, credentials)
+	port, err := envInt("WEBNOTE_PORT", 10167, credentials)
 	if err != nil || port < 1 || port > 65535 {
 		return errors.New("invalid WEBNOTE_PORT")
 	}
